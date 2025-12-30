@@ -79,7 +79,19 @@ func createProduct(w http.ResponseWriter, r *http.Request){
 		fmt.Println(err)
 		http.Error(w, "Please give me valid json",400)
 	}
+
+	newProduct.ID = len(productList) + 1
+
+	productList = append(productList, newProduct)
+
+	encoder := json.NewEncoder(w)
+
+	encoder.Encode(newProduct)
+
 }
+
+
+
 
 func main() {
 	mux := http.NewServeMux()
