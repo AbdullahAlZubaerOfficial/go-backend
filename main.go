@@ -20,8 +20,8 @@ var productList []Product
 func enableCORS(next http.HandlerFunc) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
 		w.Header().Set("Access-Control-Allow-Origin", "*")
-		w.Header().Set("Access-Control-Allow-Methods", "GET, POST, OPTIONS")
-		w.Header().Set("Access-Control-Allow-Headers", "Content-Type")
+		w.Header().Set("Access-Control-Allow-Methods", "GET, POST, OPTIONS,PUT,DELETE,PATCH",)
+		w.Header().Set("Access-Control-Allow-Headers", "Content-Type Zubaer")
 
 		if r.Method == "OPTIONS" {
 			w.WriteHeader(http.StatusOK)
@@ -29,6 +29,13 @@ func enableCORS(next http.HandlerFunc) http.HandlerFunc {
 		}
 		next(w, r)
 	}
+}
+
+func sendData(w http.ResponseWriter, data interface{}, statusCode int){
+	w.WriteHeader(statusCode)
+	encoder := json.NewEncoder(w)
+	encoder.Encoder(newProduct)
+
 }
 
 // Add this new handler for root "/"
@@ -51,6 +58,7 @@ func rootHandler(w http.ResponseWriter, r *http.Request) {
 func getProducts(w http.ResponseWriter, r *http.Request) {
 	w.Header().Set("Content-Type", "application/json")
 	json.NewEncoder(w).Encode(productList)
+	sendData(w, newProduct, 201)
 }
 
 func createProduct(w http.ResponseWriter, r *http.Request) {
@@ -63,10 +71,12 @@ func createProduct(w http.ResponseWriter, r *http.Request) {
 	newProduct.ID = len(productList) + 1
 	productList = append(productList, newProduct)
 
+	sendData(w, newProduct, 201)
+
 	w.Header().Set("Content-Type", "application/json")
 	w.WriteHeader(http.StatusCreated)
 	json.NewEncoder(w).Encode(newProduct)
-}
+}   
 
 func main() {
 	mux := http.NewServeMux()
