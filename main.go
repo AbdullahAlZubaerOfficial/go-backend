@@ -6,148 +6,104 @@ import (
 	"net/http"
 )
 
-func helloHandler(w http.ResponseWriter, r *http.Request) {
-	fmt.Fprintln(w, "Hello World")
-}
-
-func aboutHandler(w http.ResponseWriter, r *http.Request) {
-	fmt.Fprintln(w, "I'm Zubaer. I'm Web Developer.")
-}
-
 type Product struct {
-	ID          int       `json:"id"`
-	Title       string     `json:"title"`
-	Description string      `json:"description"`
-	Price       float64     `json:"price"`
-	ImgURL      string       `json:"imageUrl"`
+	ID          int     `json:"id"`
+	Title       string  `json:"title"`
+	Description string  `json:"description"`
+	Price       float64 `json:"price"`
+	ImgURL      string  `json:"imageUrl"`
+	AIEnabled   bool    `json:"aiEnabled,omitempty"`
 }
 
 var productList []Product
 
+func enableCORS(next http.HandlerFunc) http.HandlerFunc {
+	return func(w http.ResponseWriter, r *http.Request) {
+		w.Header().Set("Access-Control-Allow-Origin", "*")
+		w.Header().Set("Access-Control-Allow-Methods", "GET, POST, OPTIONS")
+		w.Header().Set("Access-Control-Allow-Headers", "Content-Type")
 
-// get products
-func getProducts(w http.ResponseWriter, r *http.Request) {
+		if r.Method == "OPTIONS" {
+			w.WriteHeader(http.StatusOK)
+			return
+		}
+		next(w, r)
+	}
+}
 
-	w.Header().Set("Access-Control-Allow-Origin","*")
-	w.Header().Set("Content-Type", "application/json")
-
-
-	if r.Method != "GET" {
-		http.Error(w, "Please give me GET request", http.StatusBadRequest)
+// Add this new handler for root "/"
+func rootHandler(w http.ResponseWriter, r *http.Request) {
+	if r.URL.Path != "/" {
+		http.NotFound(w, r)
 		return
 	}
+	fmt.Fprintln(w, `
+		<h1>Welcome to Product API </h1>
+		<p>Available endpoints:</p>
+		<ul>
+			<li><a href="/products">GET /products</a> - List all products</li>
+			<li>POST /create-products - Add new product</li>
+		</ul>
+		<p>Frontend should be running on <a href="http://localhost:3000">http://localhost:3000</a></p>
+	`)
+}
 
+func getProducts(w http.ResponseWriter, r *http.Request) {
 	w.Header().Set("Content-Type", "application/json")
 	json.NewEncoder(w).Encode(productList)
 }
 
-
-// create products
-func createProduct(w http.ResponseWriter, r *http.Request){
-
-	w.Header().Set("Access-Control-Allow-Origin","*")
-	w.Header().Set("Content-Type", "application/json")
-
-
-	if r.Method != "POST" {
-		http.Error(w, "Please give me POST request", http.StatusBadRequest)
+func createProduct(w http.ResponseWriter, r *http.Request) {
+	var newProduct Product
+	if err := json.NewDecoder(r.Body).Decode(&newProduct); err != nil {
+		http.Error(w, "Invalid JSON", http.StatusBadRequest)
 		return
 	}
 
-	// description
-	// imageUrl
-	// price
-	// title
-
-	// r.Body => description, imageUrl, price, title => Product er ekta instance => productList => append
-
-	/*
-
-	1. take body information (description, imageUrl, price , title) from r.Body
-	2. create an instance using product struct with the body information 
-	3. append the instance into productList
-
-	*/
-
-	var newProduct Product 
-
-	decoder := json.NewDecoder(r.Body)
-	decoder.Decode(&newProduct)
-	err := decoder.Decode(&newProduct)
-	
-	if err != nil {
-		fmt.Println(err)
-		http.Error(w, "Please give me valid json",400)
-	}
-
 	newProduct.ID = len(productList) + 1
-
 	productList = append(productList, newProduct)
 
-	encoder := json.NewEncoder(w)
-
-	encoder.Encode(newProduct)
-
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(http.StatusCreated)
+	json.NewEncoder(w).Encode(newProduct)
 }
-
-
-
 
 func main() {
 	mux := http.NewServeMux()
 
-	mux.HandleFunc("/hello", helloHandler)
-	mux.HandleFunc("/about", aboutHandler)
-	mux.HandleFunc("/products", getProducts)
+	// Add this line
+	mux.HandleFunc("/", rootHandler)
 
-	fmt.Println("Server is running on :8080")
+	mux.HandleFunc("/products", enableCORS(getProducts))
+	mux.HandleFunc("/create-products", enableCORS(createProduct))
 
-	err := http.ListenAndServe(":8080", mux)
-	if err != nil {
-		fmt.Println("Error starting the server", err)
-	}
+	fmt.Println("Server running on http://localhost:8080")
+	fmt.Println("Visit: http://localhost:8080/products to see products")
+	http.ListenAndServe(":8080", mux)
 }
-
 
 func init() {
-	prd1 := Product{
-		ID:          1,
-		Title:       "Orange",
-		Description: "Orange is red, I love orange",
-		Price:       100,
-		ImgURL:      "https://imgs.search.brave.com/1xgw_-dkLyHeEr3d8AnzeEgEY1gT_0EOKXOodKdzruA/rs:fit:500:0:1:0/g:ce/aHR0cHM6Ly9zdGF0/aWMudmVjdGVlenku/Y29tL3N5c3RlbS9y/ZXNvdXJjZXMvdGh1/bWJuYWlscy8wNjYv/MjQ2Lzc2NS9zbWFs/bC9vcmFuZ2UtZnJ1/aXQtc2xpY2UtaWxs/dXN0cmF0aW9uLXBu/Zy5wbmc",
-	}
-
-	prd2 := Product{
-		ID:          2,
-		Title:       "Apple",
-		Description: "Apple is red, I love Apple",
-		Price:       100,
-		ImgURL:      "https://imgs.search.brave.com/W2GSmeX06IzepHl2uEEBKvRBwl9xr0rMfesJZ_XWgUw/rs:fit:500:0:1:0/g:ce/aHR0cHM6Ly9jZG4u/cGl4YWJheS5jb20v/cGhvdG8vMjAyMy8w/MS8xNi8xMC8yOC9h/cHBsZS03NzIyMDc4/XzY0MC5qcGc",
-	}
-
-	prd3 := Product{
-		ID:          3,
-		Title:       "Banana",
-		Description: "Banana is yellow, I love Banana",
-		Price:       100,
-		ImgURL:      "https://imgs.search.brave.com/8NqROa-wFwylIqSirGnNdTt47c4pA9ZBPBnVDItuaDA/rs:fit:500:0:1:0/g:ce/aHR0cHM6Ly9yZW5k/ZXIuZmluZWFydGFt/ZXJpY2EuY29tL2lt/YWdlcy9pbWFnZXMt/cHJvZmlsZS1mbG93/LzQwMC9pbWFnZXMt/bWVkaXVtLWxhcmdl/LTUvYmFuYW5hcy1z/cGxhc2hlZC1pbnRv/LXdhdGVyLWhlbnJp/ay1zb3JlbnNlbi5q/cGc",
-	}
-
-
-
-	productList = append(productList, prd1, prd2, prd3)
+	productList = append(productList,
+		Product{
+			ID:          1,
+			Title:       "Orange",
+			Description: "Orange is red, I love orange",
+			Price:       100,
+			ImgURL:      "https://imgs.search.brave.com/1xgw_-dkLyHeEr3d8AnzeEgEY1gT_0EOKXOodKdzruA/rs:fit:500:0:1/g:ce/aHR0cHM6Ly9zdGF0/aWMudmVjdGVlenkuY29tL3N5c3RlbS9y/ZXNvdXJjZXMvdGh1/bWJuYWlscy8wNjYv/MjQ2Lzc2NS9zbWFs/bC9vcmFuZ2UtZnJ1/aXQtc2xpY2UtaWxs/dXN0cmF0aW9uLXBu/Zy5wbmc",
+		},
+		Product{
+			ID:          2,
+			Title:       "Apple",
+			Description: "Apple is red, I love Apple",
+			Price:       100,
+			ImgURL:      "https://cdn.pixabay.com/photo/2023/01/16/10/28/apple-7722078_640.jpg",
+		},
+		Product{
+			ID:          3,
+			Title:       "Banana",
+			Description: "Banana is yellow, I love Banana",
+			Price:       100,
+			ImgURL:      "https://render.fineartamerica.com/images/images-profile-flow/400/images-medium-large-5/bananas-splashed-into-water-henrik-sorensen.jpg",
+		},
+	)
 }
-
-
-/*
-
-          [] => list
-		  {} => object 
-
-		  JSON => javascript object notation
-
-*/
-
-
-
