@@ -20,8 +20,8 @@ var productList []Product
 func enableCORS(next http.HandlerFunc) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
 		w.Header().Set("Access-Control-Allow-Origin", "*")
-		w.Header().Set("Access-Control-Allow-Methods", "GET, POST, OPTIONS,PUT,DELETE,PATCH",)
-		w.Header().Set("Access-Control-Allow-Headers", "Content-Type Zubaer")
+		w.Header().Set("Access-Control-Allow-Methods", "GET, POST, OPTIONS,PUT,DELETE,PATCH")
+		w.Header().Set("Access-Control-Allow-Headers", "Content-Type, Zubaer")
 
 		if r.Method == "OPTIONS" {
 			w.WriteHeader(http.StatusOK)
@@ -31,21 +31,21 @@ func enableCORS(next http.HandlerFunc) http.HandlerFunc {
 	}
 }
 
-func sendData(w http.ResponseWriter, data interface{}, statusCode int){
+func sendData(w http.ResponseWriter, data interface{}, statusCode int) {
+	w.Header().Set("Content-Type", "application/json")
 	w.WriteHeader(statusCode)
 	encoder := json.NewEncoder(w)
-	encoder.Encoder(newProduct)
-
+	encoder.Encode(data) // fix here
 }
 
-// Add this new handler for root "/"
+// Root handler
 func rootHandler(w http.ResponseWriter, r *http.Request) {
 	if r.URL.Path != "/" {
 		http.NotFound(w, r)
 		return
 	}
 	fmt.Fprintln(w, `
-		<h1>Welcome to Product API </h1>
+		<h1>Welcome to Product API</h1>
 		<p>Available endpoints:</p>
 		<ul>
 			<li><a href="/products">GET /products</a> - List all products</li>
@@ -56,10 +56,13 @@ func rootHandler(w http.ResponseWriter, r *http.Request) {
 }
 
 func getProducts(w http.ResponseWriter, r *http.Request) {
-	w.Header().Set("Content-Type", "application/json")
-	json.NewEncoder(w).Encode(productList)
-	sendData(w, newProduct, 201)
-}
+
+	if r.Method != "GET" {
+		return
+	}
+	
+	sendData(w, productList, http.StatusOK) // use send data here
+} // 
 
 func createProduct(w http.ResponseWriter, r *http.Request) {
 	var newProduct Product
@@ -71,19 +74,17 @@ func createProduct(w http.ResponseWriter, r *http.Request) {
 	newProduct.ID = len(productList) + 1
 	productList = append(productList, newProduct)
 
-	sendData(w, newProduct, 201)
+	sendData(w, newProduct, http.StatusCreated)
+}
 
-	w.Header().Set("Content-Type", "application/json")
-	w.WriteHeader(http.StatusCreated)
-	json.NewEncoder(w).Encode(newProduct)
-}   
+func helloHandler(w http.ResponseWriter, r *http.Request) {
+	fmt.Fprintln(w, "Hello World")
+}
 
 func main() {
 	mux := http.NewServeMux()
 
-	// Add this line
-	mux.HandleFunc("/", rootHandler)
-
+	mux.HandleFunc("/", rootHandler)  
 	mux.HandleFunc("/products", enableCORS(getProducts))
 	mux.HandleFunc("/create-products", enableCORS(createProduct))
 
